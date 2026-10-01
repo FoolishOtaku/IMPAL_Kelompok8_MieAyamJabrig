@@ -1,5 +1,5 @@
 Kelompok 8 - MieAyamJabrig
-PRoject : Web LMS (Learning Management System)
+Project : Web LMS (Learning Management System)
 
 Anggota
 1. Fauzan Ahmad Choiry | 103012400120
