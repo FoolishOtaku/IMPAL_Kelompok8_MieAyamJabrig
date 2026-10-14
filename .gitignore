@@ -20,9 +20,17 @@ src/storage/framework/views/*
 src/bootstrap/cache/*.php
 !src/bootstrap/cache/.gitignore
 
-# Local data directories
+# Local data directories & temporary development database files
 /data/
+*.sql
 *.sql.gz
+*.sqlite
+*.sqlite-journal
+*.sqlite3
+*.db
+src/database/*.sqlite*
+src/database/*.db
+docker/mariadb/data/
 
 # OS / IDE
 .DS_Store

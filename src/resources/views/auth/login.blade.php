@@ -74,21 +74,47 @@
             </div>
         </div>
 
-        <!-- Alert Notification Box -->
+        <!-- Server & Session Flash Alert Box -->
+        @if ($errors->any())
+            <div class="auth-alert alert-danger-custom" role="alert">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <span>{{ $errors->first() }}</span>
+            </div>
+        @endif
+
+        @if (session('status'))
+            <div class="auth-alert alert-success-custom" role="alert">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                    <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+                <span>{{ session('status') }}</span>
+            </div>
+        @endif
+
+        <!-- Client Alert Box (Dynamic) -->
         <div id="loginAlertBox" class="auth-alert d-none" role="alert">
             <svg id="alertIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
             <span id="alertMessage"></span>
         </div>
 
-        <!-- Dummy Credentials Form -->
-        <form id="dummyLoginForm" class="login-form" onsubmit="handleLoginSubmit(event)">
+        <!-- Real Backend Authentication Form -->
+        <form id="dummyLoginForm" class="login-form" method="POST" action="{{ route('login.post') }}" onsubmit="handleLoginSubmit(event)">
+            @csrf
+
             <!-- Username / NIM Field -->
             <div class="form-group-custom">
                 <label for="usernameField" class="field-label">Username atau NIM / NIP</label>
                 <div class="input-icon-wrapper">
                     <input type="text"
+                           name="username"
                            id="usernameField"
-                           class="form-control-custom"
+                           class="form-control-custom @error('username') is-invalid @enderror"
+                           value="{{ old('username') }}"
                            placeholder="Contoh: 103012400346 atau username"
                            autocomplete="username"
                            required>
@@ -104,8 +130,9 @@
                 <label for="passwordField" class="field-label">Kata Sandi</label>
                 <div class="input-icon-wrapper">
                     <input type="password"
+                           name="password"
                            id="passwordField"
-                           class="form-control-custom"
+                           class="form-control-custom @error('password') is-invalid @enderror"
                            placeholder="Masukkan kata sandi"
                            autocomplete="current-password"
                            required>
@@ -125,7 +152,7 @@
             <!-- Form Actions Row (Remember me & Help) -->
             <div class="form-actions-row">
                 <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="rememberMeCheck" checked>
+                    <input class="form-check-input" type="checkbox" name="remember" id="rememberMeCheck" {{ old('remember', true) ? 'checked' : '' }}>
                     <label class="form-check-label" for="rememberMeCheck">Ingat saya</label>
                 </div>
                 <a href="javascript:void(0)" class="link-helper" data-bs-toggle="modal" data-bs-target="#helpModal">Bantuan login</a>
@@ -287,10 +314,8 @@
         }
     };
 
-    // 3. Form Submission Simulation
+    // 3. Form Submission Handling (Client Validation & Real Server Submit)
     window.handleLoginSubmit = function(e) {
-        if (e) e.preventDefault();
-
         var uField = document.getElementById('usernameField');
         var pField = document.getElementById('passwordField');
         var u = uField ? uField.value.trim() : '';
@@ -301,6 +326,7 @@
         var alertIcon = document.getElementById('alertIcon');
 
         if (!u || !p) {
+            if (e) e.preventDefault();
             if (alertBox && alertMsg && alertIcon) {
                 alertBox.className = 'auth-alert alert-danger-custom';
                 alertIcon.innerHTML = '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>';
@@ -315,29 +341,16 @@
         var btnArrow = document.getElementById('btnSubmitArrow');
         var btnSpinner = document.getElementById('btnSubmitSpinner');
 
-        if (btnSubmit) btnSubmit.disabled = true;
+        if (btnSubmit) {
+            // Keep button enabled briefly to prevent form submit cancellation in some browsers
+            setTimeout(function() { btnSubmit.disabled = true; }, 10);
+        }
         if (btnText) btnText.textContent = 'Memverifikasi...';
         if (btnArrow) btnArrow.classList.add('d-none');
         if (btnSpinner) btnSpinner.classList.remove('d-none');
 
-        setTimeout(function() {
-            if (btnSubmit) btnSubmit.disabled = false;
-            if (btnText) btnText.textContent = 'Masuk ke LMS';
-            if (btnArrow) btnArrow.classList.remove('d-none');
-            if (btnSpinner) btnSpinner.classList.add('d-none');
-
-            var activeBtn = document.querySelector('.btn-role-quick.active');
-            var roleName = activeBtn ? activeBtn.textContent.trim() : 'Pengguna';
-
-            if (alertBox && alertMsg && alertIcon) {
-                alertBox.className = 'auth-alert alert-success-custom';
-                alertIcon.innerHTML = '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>';
-                alertMsg.textContent = 'Autentikasi prototipe berhasil sebagai ' + roleName + ' (' + u + '). Integrasi backend & dashboard akan disambungkan pada tahap berikutnya.';
-                alertBox.classList.remove('d-none');
-            }
-        }, 500);
-
-        return false;
+        // Form will naturally submit to POST /login (handled by Laravel)
+        return true;
     };
 
     // 4. Language Switcher
