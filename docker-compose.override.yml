@@ -1,0 +1,41 @@
+# Development overrides. Auto-loaded by `docker compose` locally.
+# On the server, setup.sh writes COMPOSE_FILE=docker-compose.yml so this file is skipped.
+services:
+  app:
+    build:
+      target: dev
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      AUTO_MIGRATE: "true"
+      DB_PASSWORD: ${DB_PASSWORD:-lms_dev_password}
+    volumes:
+      - ./src:/var/www/html
+      - lms_storage:/var/www/html/storage
+
+  web:
+    volumes:
+      - ./src/public:/var/www/html/public:ro
+
+  db:
+    environment:
+      MARIADB_PASSWORD: ${DB_PASSWORD:-lms_dev_password}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-lms_dev_root}
+    ports:
+      - "127.0.0.1:3307:3306"
+
+  # Vite dev server (hot reload). Part of the dev stack so `docker compose up`
+  # always serves assets: it writes public/hot, which @vite() picks up.
+  vite:
+    image: node:22-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./src:/app
+      - vite_node_modules:/app/node_modules
+    networks: [lms]
+
+volumes:
+  vite_node_modules: {}

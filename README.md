@@ -88,10 +88,10 @@ Prototipe berbasis web ini menggunakan data *dummy* dan seluruh komponennya dija
 | :--- | :--- | :--- |
 | **Container Runtime** | **Docker Engine** + **Docker Compose** (NixOS: `virtualisation.docker`) | Menjalankan seluruh layanan sebagai container sehingga lingkungan konsisten antara dev dan server. |
 | **Web Server** | **Nginx** (container) | Menyajikan aplikasi & file statis, meneruskan request PHP ke PHP-FPM. Batas upload `client_max_body_size 50M`. |
-| **Backend Framework** | **Laravel 11 (PHP 8.3-FPM)** (container) | Menangani *routing*, autentikasi sesi, kontrol akses peran (*role*), validasi berkas, dan logika bisnis. |
-| **Frontend / UI** | **Blade Template** + **Bootstrap 5** / **Tailwind CSS** | Merender antarmuka langsung dari *server*. Aset di-*build* dengan **Vite** (Node.js) pada tahap *build* image, bukan saat runtime. |
+| **Backend Framework** | **Laravel 13 (PHP 8.4-FPM)** (container) | Menangani *routing*, autentikasi sesi, kontrol akses peran (*role*), validasi berkas, dan logika bisnis. |
+| **Frontend / UI** | **Blade Template** + **Bootstrap 5 (SCSS)** | Merender antarmuka langsung dari *server*. Aset dikompilasi via **Vite** dan Bootstrap 5 terintegrasi. |
 | **Komponen Interaktif** | **JavaScript (ES6)** + **FullCalendar.js (CDN)** | Kalender bulanan/harian, interaksi *popup*, dan validasi *client-side*. |
-| **Database** | **MariaDB 11** (container) | Menyimpan seluruh data relasional pengguna, mata kuliah, tugas, forum, kalender, dan log notifikasi. Data di *named volume*. |
+| **Database** | **MariaDB 11** (container) | Menyimpan seluruh data relasional pengguna, mata kuliah, tugas, forum, kalender, dan log notifikasi. Data di *named volume* / host bind path. |
 | **File Storage** | **Laravel Local Storage** pada **Docker volume** (`storage/app/public`) | Menyimpan materi PDF, banner OCW, dan berkas tugas mahasiswa (maks. **50 MB**). Volume dipersist di host NixOS. |
 | **Reverse Proxy / HTTPS** | **Nginx** / **Caddy** / **Traefik** (di host NixOS) | Terminasi **HTTPS** (Let's Encrypt) dan meneruskan trafik ke container web. |
 | **Manajemen DB (opsional)** | **phpMyAdmin** / **Adminer** (container, hanya dev) | Memudahkan pengecekan data *dummy*. Tidak diekspos ke publik pada produksi. |
@@ -101,19 +101,47 @@ Prototipe berbasis web ini menggunakan data *dummy* dan seluruh komponennya dija
 | Sebelumnya | Sekarang (Docker + NixOS) |
 | :--- | :--- |
 | Laragon / XAMPP (lokal Windows) | Docker Compose di server NixOS |
-| Apache/Nginx + PHP bawaan paket | Container terpisah: **Nginx** + **PHP-FPM** |
-| MySQL / MariaDB lokal | Container **MariaDB** dengan *named volume* |
+| Apache/Nginx + PHP bawaan paket | Container terpisah: **Nginx** + **PHP 8.4-FPM** |
+| MySQL / MariaDB lokal | Container **MariaDB 11** dengan *named volume* / bind mount |
 | `public/uploads` di folder proyek | Docker volume untuk `storage` (persisten, di luar image) |
 | Aset dikompilasi manual | Aset di-*build* via **Vite** pada *multi-stage build* Dockerfile |
-| Konfigurasi `.env` lokal | `.env` + variabel environment pada `docker-compose.yml` |
+| Konfigurasi `.env` lokal | `.env` otomatis + variabel environment pada `docker-compose.yml` |
 
-> Framework (Laravel), UI (Blade + Bootstrap/Tailwind), kalender (FullCalendar), serta skema database **tidak berubah**.
+> Framework (Laravel), UI (Blade + Bootstrap 5), kalender (FullCalendar), serta skema database **tidak berubah**.
 
 ---
 
-## 5. Deployment Docker di NixOS
+## 5. Deployment & Menjalankan Proyek
 
-### 5.1 Struktur layanan (rencana)
+### 5.1 Struktur Repositori
+
+```text
+IMPAL_Kelompok8_MieAyamJabrig/
+├── Design Document/                 Dokumen SKPL, DPPL, ERD, dan diagram arsitektur
+├── docker/
+│   ├── php/                         Dockerfile (multi-stage), php.ini (upload 50M), entrypoint.sh
+│   ├── nginx/                       Dockerfile, default.conf (FastCGI upstream & upload limit)
+│   └── mariadb/init/                Script inisialisasi basis data (.sql)
+├── nixos/
+│   └── lms.nix                      Modul deklaratif NixOS (direktori host, systemd autostart, auto backup)
+├── src/                             Aplikasi Laravel 13 (PHP 8.4)
+│   ├── app/Http/Controllers/        Control layer (DPPL)
+│   ├── app/Models/                  Entity layer (DPPL)
+│   ├── database/migrations/         Skema basis data relasional
+│   ├── resources/views/             Boundary layer (auth, course, matakuliah, notifikasi, kalender, dll.)
+│   ├── resources/css/ & js/         Bootstrap 5 SCSS & JavaScript via Vite
+│   └── vite.config.js               Konfigurasi Vite bundler
+├── docker-compose.yml               Konfigurasi stack container production/server
+├── docker-compose.override.yml      Override otomatis untuk dev lokal (bind-mount source, live Vite reload)
+├── setup.ps1                        Script inisialisasi otomatis untuk Windows dev
+├── dev.ps1                          Script daily development (menjalankan stack + live reload)
+├── setup.sh                         Script inisialisasi otomatis untuk server NixOS/Linux
+├── .env.example                     Template environment variabel
+├── .gitattributes                   Enforce LF line-endings untuk kompatibilitas container Linux
+└── README.md                        Dokumentasi proyek
+```
+
+### 5.2 Struktur Layanan Docker
 
 ```text
                  +--------------------------+
@@ -121,7 +149,7 @@ Prototipe berbasis web ini menggunakan data *dummy* dan seluruh komponennya dija
                  +------------+-------------+
                               |
                  +------------v-------------+
-                 | nginx (web)    :80       |
+                 | nginx (web)    :8080     |
                  +------------+-------------+
                               | FastCGI :9000
                  +------------v-------------+      +---------------------+
@@ -131,50 +159,49 @@ Prototipe berbasis web ini menggunakan data *dummy* dan seluruh komponennya dija
                     volume: lms_storage               volume: lms_db_data
 ```
 
-| Service | Image | Peran |
+| Service | Image / Target | Peran |
 | :--- | :--- | :--- |
-| `web` | `nginx:alpine` | Web server & penyaji aset statis |
-| `app` | build lokal (`php:8.3-fpm-alpine` + Composer + hasil build Vite) | Aplikasi Laravel |
+| `web` | Nginx Alpine (custom build) | Web server & penyaji aset statis |
+| `app` | PHP 8.4-FPM Alpine (custom build) | Aplikasi Laravel & background jobs |
 | `db` | `mariadb:11` | Database relasional |
-| `phpmyadmin` *(opsional)* | `phpmyadmin:latest` | Admin database (dev) |
+| `vite` | Node 22 Alpine (dev only) | Live compilation & Hot Module Replacement (HMR) |
 
-### 5.2 Prasyarat di server NixOS
+### 5.3 Cara Menjalankan
 
-Aktifkan Docker pada `configuration.nix`:
+#### A. Lingkungan Dev Lokal (Windows)
+Cukup jalankan satu perintah:
+```powershell
+.\setup.ps1
+```
+Script ini otomatis:
+1. Memeriksa ketersediaan Docker Engine.
+2. Membuat file `.env` dengan password acak aman jika belum ada.
+3. Mem-build dan menjalankan semua container (`app`, `web`, `db`, `vite`).
+4. Menunggu hingga aplikasi siap diakses di `http://localhost:8080`.
 
-```nix
-{
-  virtualisation.docker.enable = true;
-  users.users.<username>.extraGroups = [ "docker" ];
-
-  # Buka port untuk reverse proxy (HTTP/HTTPS)
-  networking.firewall.allowedTCPPorts = [ 80 443 ];
-}
+Untuk pengembangan sehari-hari berikutnya:
+```powershell
+.\dev.ps1
 ```
 
-Lalu terapkan konfigurasi: `sudo nixos-rebuild switch`.
+#### B. Lingkungan Server (NixOS)
+1. **Opsi Modul Deklaratif (Direkomendasikan):**
+   Salin atau import `nixos/lms.nix` ke dalam `/etc/nixos/configuration.nix`:
+   ```nix
+   imports = [ /opt/lms/nixos/lms.nix ];
+   ```
+   Lalu jalankan `sudo nixos-rebuild switch`. Modul ini akan otomatis membuat direktori `/var/lib/lms/`, mengatur hak akses, menjalankan stack container saat boot, dan menjadwalkan backup MariaDB harian secara otomatis.
 
-### 5.3 Menjalankan aplikasi
+2. **Inisialisasi Pertama Kali:**
+   ```bash
+   chmod +x setup.sh
+   ./setup.sh
+   ```
 
-```bash
-# 1. Clone repositori
-git clone https://github.com/FoolishOtaku/IMPAL_Kelompok8_MieAyamJabrig.git
-cd IMPAL_Kelompok8_MieAyamJabrig
-
-# 2. Siapkan environment
-cp .env.example .env     # sesuaikan DB_HOST=db, DB_DATABASE, DB_USERNAME, DB_PASSWORD
-
-# 3. Build & jalankan container
-docker compose up -d --build
-
-# 4. Inisialisasi aplikasi (sekali saja)
-docker compose exec app php artisan key:generate
-docker compose exec app php artisan migrate --seed    # seed = data dummy
-docker compose exec app php artisan storage:link
-```
-
-> [!NOTE]
-> File `Dockerfile`, `docker-compose.yml`, dan konfigurasi Nginx akan ditambahkan pada tahap implementasi. Bagian ini menjadi acuan rencana deployment.
+3. **Deploy Pembaruan Kode Selanjutnya:**
+   ```bash
+   git pull && docker compose up -d --build
+   ```
 
 ### 5.4 Catatan konfigurasi penting
 

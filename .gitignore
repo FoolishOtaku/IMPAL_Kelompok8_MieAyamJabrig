@@ -1,0 +1,31 @@
+# Secrets / local environment
+.env
+src/.env
+src/.env.backup
+src/.env.production
+
+# Dependencies and build output
+src/vendor/
+src/node_modules/
+src/public/build/
+src/public/hot
+src/public/storage
+
+# Laravel runtime
+src/storage/*.key
+src/storage/logs/*
+src/storage/framework/cache/data/*
+src/storage/framework/sessions/*
+src/storage/framework/views/*
+src/bootstrap/cache/*.php
+!src/bootstrap/cache/.gitignore
+
+# Local data directories
+/data/
+*.sql.gz
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

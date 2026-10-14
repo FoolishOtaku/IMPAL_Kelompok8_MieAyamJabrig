@@ -1,0 +1,6 @@
+# Always use LF for files executed inside Linux containers / on the server
+*.sh            text eol=lf
+docker/**       text eol=lf
+nixos/**        text eol=lf
+Dockerfile      text eol=lf
+*.yml           text eol=lf
