@@ -72,7 +72,6 @@ body.auth-body {
 
 .auth-viewport {
     position: relative;
-    z-index: 1;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
@@ -681,3 +680,13 @@ body.auth-body {
         color: #166534;
     }
 }
+
+// 10. Bootstrap Modal & Backdrop Stacking Safeguards
+.modal-backdrop {
+    z-index: 1050 !important;
+}
+
+.modal {
+    z-index: 1060 !important;
+}
+

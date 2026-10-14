@@ -49,5 +49,10 @@
             <span class="watermark-text">LMS</span>
         </footer>
     </div>
+
+    <!-- Modals rendered outside viewport stacking context -->
+    @yield('modals')
+
+    @stack('scripts')
 </body>
 </html>

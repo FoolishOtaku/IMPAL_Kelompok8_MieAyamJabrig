@@ -178,7 +178,9 @@
         </div>
     </div>
 </div>
+@endsection
 
+@section('modals')
 <!-- Modal for Cookie Notice -->
 <div class="modal fade" id="cookieNoticeModal" tabindex="-1" aria-labelledby="cookieModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -220,8 +222,9 @@
         </div>
     </div>
 </div>
+@endsection
 
-<!-- Robust Direct Inline Script for Instant Interactivity -->
+@push('scripts')
 <script>
     // 1. One-Click Dummy Role Auto-Fill
     window.selectDummyRole = function(role) {
@@ -343,4 +346,4 @@
         if (label) label.textContent = lang;
     };
 </script>
-@endsection
+@endpush
