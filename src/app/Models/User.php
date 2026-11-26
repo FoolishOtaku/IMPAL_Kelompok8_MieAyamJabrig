@@ -85,5 +85,22 @@ class User extends Authenticatable
             default              => 'Username',
         };
     }
+
+    /**
+     * Get user academic data array (matching DPPL class E-01 User: + getUserData())
+     *
+     * @return array<string, mixed>
+     */
+    public function getUserData(): array
+    {
+        return [
+            'userId'   => $this->username,
+            'name'     => $this->name,
+            'email'    => $this->email,
+            'role'     => $this->role,
+            'prodi'    => $this->prodi,
+            'phone'    => $this->phone,
+        ];
+    }
 }
 
